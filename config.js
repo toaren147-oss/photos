@@ -5,10 +5,10 @@ window.TAOREN = {
 
   BRAND: 'TAOREN',
 
-  // ค่าความเหมือนของใบหน้า (ยิ่งน้อยยิ่งเข้ม) 0.5 = มาตรฐาน
-  MATCH_THRESHOLD: 0.5,
+  // ค่าความเหมือนของใบหน้า (ยิ่งน้อยยิ่งเข้ม) 0.45 = เข้มขึ้น เหมาะกับหน้าคนเอเชีย
+  MATCH_THRESHOLD: 0.45,
   // รูปที่ "อาจจะเป็นคุณ" (แสดงเมื่อลูกค้ากดเปิดเอง)
-  MAYBE_THRESHOLD: 0.56,
+  MAYBE_THRESHOLD: 0.5,
 
   // ที่เก็บโมเดลจดจำใบหน้า (ไม่ต้องแก้)
   MODEL_URL: 'https://cdn.jsdelivr.net/gh/vladmandic/face-api@1.7.12/model/'
