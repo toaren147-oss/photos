@@ -102,6 +102,19 @@
         <button id="btnCreate" class="ghost" style="flex:0" disabled>สร้างงานใหม่</button>
       </div>
       <p class="hint" id="eventInfo"></p>
+      <div id="albumBox" hidden>
+        <label for="albumMode">ปุ่ม "ดูรูปทั้งหมดของงาน" ในหน้าแขก</label>
+        <div class="row">
+          <select id="albumMode">
+            <option value="off">ปิด (แขกเห็นเฉพาะรูปของตัวเอง)</option>
+            <option value="folder">เปิด: ลิงก์ไปโฟลเดอร์รูปของงานนี้ใน Drive</option>
+            <option value="custom">เปิด: ใช้ลิงก์อื่น (เช่น อัลบั้มที่คัดแล้ว)</option>
+          </select>
+          <button id="btnAlbum" class="ghost" style="flex:0">บันทึก</button>
+        </div>
+        <input id="albumUrl" placeholder="https://drive.google.com/drive/folders/..." hidden style="margin-top:10px">
+        <p class="hint">ถ้าเปิด แขกทุกคนที่มีลิงก์จะเห็นรูปทั้งหมดของงาน รวมถึงคนที่ไม่ได้สแกนหน้า</p>
+      </div>
     </section>
 
     <section class="card">
@@ -253,6 +266,11 @@
       j.names.forEach(function (n) { uploaded.add(n); });
       stats.done = j.names.length;
       $('#eventInfo').innerHTML = 'มีรูปในงานนี้แล้ว ' + j.names.length + ' รูป · <a href="' + j.folderUrl + '" target="_blank">เปิดโฟลเดอร์ใน Drive</a>';
+      var mode = !j.album ? 'off' : (j.album === j.folderUrl ? 'folder' : 'custom');
+      $('#albumMode').value = mode;
+      $('#albumUrl').value = mode === 'custom' ? j.album : '';
+      $('#albumUrl').hidden = mode !== 'custom';
+      $('#albumBox').hidden = false;
     } catch (e) { log('error', 'โหลดข้อมูลงานไม่สำเร็จ: ' + e.message); }
     renderQr();
     updateUi();
@@ -439,6 +457,21 @@
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 
   window.addEventListener('beforeunload', function (e) { if (running && (queue.length || active)) { e.preventDefault(); e.returnValue = ''; } });
+
+  $('#albumMode').onchange = function () { $('#albumUrl').hidden = this.value !== 'custom'; };
+  $('#btnAlbum').onclick = async function () {
+    if (!S.event) return;
+    var mode = $('#albumMode').value;
+    var url = mode === 'off' ? '' : (mode === 'folder' ? 'folder' : $('#albumUrl').value.trim());
+    if (mode === 'custom' && url.indexOf('https://') !== 0) { log('error', 'ใส่ลิงก์ที่ขึ้นต้นด้วย https://'); return; }
+    this.disabled = true;
+    try {
+      await api('setAlbum', { e: S.event.code, url: url });
+      log('ok', url ? 'เปิดปุ่ม "ดูรูปทั้งหมดของงาน" แล้ว' : 'ปิดปุ่ม "ดูรูปทั้งหมดของงาน" แล้ว');
+    } catch (e) {
+      log('error', 'บันทึกลิงก์ไม่สำเร็จ: ' + e.message + (e.message === 'unknown_action' ? ' (ต้อง Deploy Apps Script เวอร์ชันใหม่ก่อน)' : ''));
+    } finally { this.disabled = false; }
+  };
 
   $('#btnConnect').onclick = connect;
   $('#btnCreate').onclick = createEvent;

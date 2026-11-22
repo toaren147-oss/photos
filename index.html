@@ -23,6 +23,7 @@
   .consent input { width:20px; height:20px; flex:0 0 auto; margin-top:2px; accent-color:var(--ink); }
   .btn { display:block; width:100%; font:inherit; font-size:17px; font-weight:500; padding:15px; border-radius:14px; border:0; background:var(--ink); color:#fff; cursor:pointer; }
   .btn:disabled { opacity:.35; }
+  a.btn { text-decoration:none; text-align:center; }
   .btn.ghost { background:#fff; color:var(--ink); border:1px solid var(--ink); font-size:15px; padding:11px; }
   .loading { font-size:13px; color:var(--muted); margin-top:12px; min-height:20px; }
   .me { display:flex; align-items:center; gap:14px; text-align:left; }
@@ -77,6 +78,7 @@
     <button class="btn" id="btnSelfie" disabled>📷 ถ่ายเซลฟี่</button>
     <input type="file" id="selfieInput" accept="image/*" capture="user" class="hidden">
     <div class="loading" id="loadMsg">กำลังเตรียมระบบจดจำใบหน้า…</div>
+    <a class="btn ghost album-link hidden" target="_blank" rel="noopener" style="margin-top:14px">ดูรูปทั้งหมดของงาน</a>
   </section>
 
   <!-- ขั้นที่ 2: กำลังค้นหา -->
@@ -94,6 +96,7 @@
       </div>
       <div class="bar">
         <button class="btn ghost" id="btnRetake">ถ่ายเซลฟี่ใหม่</button>
+        <a class="btn ghost album-link hidden" target="_blank" rel="noopener">ดูรูปทั้งหมดของงาน</a>
       </div>
       <label class="toggle"><input type="checkbox" id="showMaybe"> แสดงรูปที่อาจจะเป็นคุณด้วย</label>
       <div class="live"><i></i> กำลังติดตามรูปใหม่</div>
@@ -155,6 +158,11 @@
     var j = await res.json();
     if (!j.ok) throw new Error(j.error || 'error');
     $('#eventName').textContent = j.name || '';
+    document.querySelectorAll('.album-link').forEach(function (a) {
+      var ok = typeof j.album === 'string' && j.album.indexOf('https://') === 0;
+      if (ok) a.href = j.album;
+      a.classList.toggle('hidden', !ok);
+    });
     document.title = (CFG.BRAND || 'TAOREN') + ' — ' + (j.name || 'รูปของคุณ');
     j.photos.forEach(function (p) {
       photos.push({ id: p[0], t: p[1], faces: p[2] ? p[2].split('|').filter(Boolean).map(F.decode) : [], best: Infinity });
