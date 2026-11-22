@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>TAOREN Photobooth — ควบคุมการอัปโหลด</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#141414; --muted:#6b6b6b; --line:#e6e3de; --bg:#f7f5f2; --card:#fff; --accent:#b08d57; --ok:#2f7d4f; --err:#b23b3b; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'IBM Plex Sans Thai',system-ui,sans-serif; background:var(--bg); color:var(--ink); }
+  header { display:flex; align-items:center; justify-content:space-between; padding:18px 28px; border-bottom:1px solid var(--line); background:var(--card); }
+  .brand { letter-spacing:.32em; font-weight:600; font-size:18px; }
+  .brand small { letter-spacing:.08em; font-weight:400; color:var(--muted); margin-left:10px; font-size:13px; }
+  main { max-width:1180px; margin:0 auto; padding:24px; display:grid; grid-template-columns: 1fr 360px; gap:20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; margin-bottom:20px; }
+  h2 { font-size:15px; margin:0 0 14px; font-weight:600; }
+  h2 .n { display:inline-block; width:22px; height:22px; border-radius:50%; background:var(--ink); color:#fff; text-align:center; line-height:22px; font-size:12px; margin-right:8px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+  input, select { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; background:#fff; }
+  .row { display:flex; gap:10px; align-items:flex-end; }
+  .row > * { flex:1; }
+  button { font:inherit; padding:10px 16px; border-radius:8px; border:1px solid var(--ink); background:var(--ink); color:#fff; cursor:pointer; white-space:nowrap; }
+  button.ghost { background:#fff; color:var(--ink); }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  button.big { padding:14px 22px; font-size:16px; }
+  .status { display:inline-flex; align-items:center; gap:8px; font-size:14px; }
+  .dot { width:10px; height:10px; border-radius:50%; background:#bbb; }
+  .dot.on { background:var(--ok); box-shadow:0 0 0 4px rgba(47,125,79,.15); animation:pulse 1.6s infinite; }
+  @keyframes pulse { 50% { box-shadow:0 0 0 8px rgba(47,125,79,.05); } }
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:16px; }
+  .stat { border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .stat b { display:block; font-size:26px; font-weight:600; }
+  .stat span { font-size:12px; color:var(--muted); }
+  .recent { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; margin-top:8px; }
+  .recent figure { margin:0; position:relative; }
+  .recent img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; display:block; background:#eee; }
+  .recent figcaption { position:absolute; right:4px; bottom:4px; background:rgba(0,0,0,.65); color:#fff; font-size:11px; padding:1px 6px; border-radius:10px; }
+  .log { font-size:12px; font-family:ui-monospace,Menlo,monospace; max-height:220px; overflow:auto; background:#fbfaf8; border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+  .log div { padding:2px 0; }
+  .log .error { color:var(--err); }
+  .log .ok { color:var(--ok); }
+  .qr { text-align:center; }
+  .qr img { width:100%; max-width:280px; image-rendering:pixelated; }
+  .link { font-size:12px; word-break:break-all; color:var(--muted); margin:8px 0 12px; }
+  .hint { font-size:12px; color:var(--muted); line-height:1.6; }
+  .muted { color:var(--muted); }
+  details summary { cursor:pointer; font-size:13px; color:var(--muted); margin-top:8px; }
+  #screen { position:fixed; inset:0; background:#fff; display:none; flex-direction:column; align-items:center; justify-content:center; z-index:10; text-align:center; padding:30px; }
+  #screen.show { display:flex; }
+  #screen .brand { font-size:34px; margin-bottom:6px; }
+  #screen h1 { font-weight:500; font-size:30px; margin:6px 0 26px; }
+  #screen img { width:min(62vh,80vw); image-rendering:pixelated; }
+  #screen p { font-size:24px; margin:22px 0 4px; }
+  #screen .sub { font-size:16px; color:var(--muted); }
+  #screen button { position:absolute; top:18px; right:18px; }
+  @media (max-width: 900px) { main { grid-template-columns:1fr; } }
+  @media print { header, main > div:first-child, #screen button { display:none !important; } #screen { display:flex !important; position:static; } }
+</style>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="face.js"></script>
+</head>
+<body>
+<header>
+  <div class="brand">TAOREN<small>Photobooth · ควบคุมการอัปโหลด</small></div>
+  <div class="status"><span class="dot" id="dot"></span><span id="statusText">หยุดอยู่</span></div>
+</header>
+
+<main>
+  <div>
+    <section class="card" id="setupCard">
+      <h2><span class="n">1</span>เชื่อมต่อ Google Drive</h2>
+      <label>Apps Script Web app URL</label>
+      <input id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      <label>Admin key</label>
+      <div class="row">
+        <input id="key" type="password" placeholder="รหัสจากขั้นตอน setup">
+        <button id="btnConnect" style="flex:0">เชื่อมต่อ</button>
+      </div>
+      <details>
+        <summary>ตั้งค่าขนาดรูป</summary>
+        <div class="row">
+          <div><label>ด้านยาวสุดของรูปที่อัปโหลด (px, 0 = ไฟล์เต็ม)</label><input id="maxEdge" type="number" min="0" step="100"></div>
+          <div><label>คุณภาพ JPEG (0.5–1)</label><input id="quality" type="number" min="0.5" max="1" step="0.01"></div>
+          <div><label>ขนาดที่ใช้หาใบหน้า (px)</label><input id="detectEdge" type="number" min="640" step="100"></div>
+        </div>
+        <p class="hint">ค่าเริ่มต้น 2500px ≈ 1–1.5 MB ต่อรูป (2,000 รูป ≈ 2–3 GB) อัปโหลดได้เร็วแม้เน็ตในงานช้า ส่วนไฟล์เต็มส่งลูกค้าภายหลังตามปกติ</p>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2><span class="n">2</span>เลือกงาน</h2>
+      <div class="row">
+        <select id="eventSelect" disabled><option value="">— เชื่อมต่อก่อน —</option></select>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <input id="newEventName" placeholder="ชื่องานใหม่ เช่น Agoda Year-end Party 2026">
+        <button id="btnCreate" class="ghost" style="flex:0" disabled>สร้างงานใหม่</button>
+      </div>
+      <p class="hint" id="eventInfo"></p>
+    </section>
+
+    <section class="card">
+      <h2><span class="n">3</span>เลือกโฟลเดอร์ที่กล้องบันทึกรูป แล้วกดเริ่ม</h2>
+      <div class="row">
+        <button id="btnFolder" class="ghost">เลือกโฟลเดอร์…</button>
+        <button id="btnStart" class="big" disabled>▶ เริ่มอัปโหลดอัตโนมัติ</button>
+      </div>
+      <p class="hint" id="folderInfo">ยังไม่ได้เลือกโฟลเดอร์ · รองรับ .jpg / .png และโฟลเดอร์ย่อย</p>
+      <div class="stats">
+        <div class="stat"><b id="sDone">0</b><span>อัปโหลดแล้ว</span></div>
+        <div class="stat"><b id="sQueue">0</b><span>รอคิว</span></div>
+        <div class="stat"><b id="sFaces">0</b><span>ใบหน้าที่พบ</span></div>
+        <div class="stat"><b id="sErr">0</b><span>ลองใหม่</span></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>รูปล่าสุด</h2>
+      <div class="recent" id="recent"><span class="hint">ยังไม่มีรูป</span></div>
+    </section>
+
+    <section class="card">
+      <h2>บันทึกการทำงาน</h2>
+      <div class="log" id="log"></div>
+    </section>
+  </div>
+
+  <div>
+    <section class="card qr">
+      <h2 style="text-align:left">QR สำหรับลูกค้า</h2>
+      <div id="qrBox" class="hint">เลือกงานก่อน</div>
+      <div class="link" id="guestLink"></div>
+      <div class="row">
+        <button id="btnScreen" class="ghost" disabled>เปิดจอ QR</button>
+        <button id="btnCopy" class="ghost" disabled>คัดลอกลิงก์</button>
+      </div>
+    </section>
+    <section class="card">
+      <h2>ข้อควรทำระหว่างงาน</h2>
+      <p class="hint">
+        • เปิดหน้านี้ไว้ใน Chrome ตลอดงาน ห้ามปิดแท็บ และอย่าย่อหน้าต่าง (ถ้าย่อ Chrome อาจทำงานช้าลง)<br>
+        • ระหว่างอัปโหลด หน้าจอจะไม่ดับเอง แต่ควรเสียบสายชาร์จไว้<br>
+        • ถ้าเน็ตหลุด ระบบจะเก็บคิวไว้แล้วอัปโหลดใหม่ให้เอง<br>
+        • ถ้ารีเฟรชหน้า ให้เลือกงานเดิมกับโฟลเดอร์เดิม ระบบจะข้ามรูปที่อัปโหลดไปแล้ว
+      </p>
+    </section>
+  </div>
+</main>
+
+<div id="screen">
+  <button class="ghost" id="btnCloseScreen">ปิด</button>
+  <div class="brand">TAOREN</div>
+  <h1 id="screenTitle"></h1>
+  <img id="screenQr" alt="QR">
+  <p>สแกนเพื่อรับรูปของคุณ</p>
+  <div class="sub">ถ่ายเซลฟี่ 1 รูป แล้วระบบจะค้นหารูปที่มีคุณให้อัตโนมัติ</div>
+</div>
+
+<script>
+(function () {
+  var CFG = window.TAOREN || {};
+  var F = window.TaorenFace;
+  var $ = function (s) { return document.querySelector(s); };
+  var LS_KEY = 'taoren_admin_v1';
+
+  var S = { apiUrl: '', key: '', maxEdge: 2500, quality: 0.9, detectEdge: 1600, event: null };
+  try { Object.assign(S, JSON.parse(localStorage.getItem(LS_KEY) || '{}')); } catch (e) {}
+  if (!S.apiUrl && CFG.API_URL && CFG.API_URL.indexOf('http') === 0) S.apiUrl = CFG.API_URL;
+  function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {} }
+
+  $('#apiUrl').value = S.apiUrl; $('#key').value = S.key;
+  $('#maxEdge').value = S.maxEdge; $('#quality').value = S.quality; $('#detectEdge').value = S.detectEdge;
+  ['maxEdge', 'quality', 'detectEdge'].forEach(function (id) {
+    $('#' + id).addEventListener('change', function () { S[id] = Number(this.value) || 0; save(); });
+  });
+
+  // ---------- log ----------
+  function log(type, msg) {
+    var d = document.createElement('div');
+    d.className = type;
+    d.textContent = new Date().toLocaleTimeString('th-TH') + '  ' + msg;
+    var box = $('#log'); box.prepend(d);
+    while (box.children.length > 300) box.lastChild.remove();
+  }
+
+  // ---------- API ----------
+  async function api(action, payload) {
+    var body = Object.assign({ action: action, key: S.key }, payload || {});
+    var res = await fetch(S.apiUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    var j = await res.json();
+    if (!j.ok) throw new Error(j.error === 'bad_key' ? 'Admin key ไม่ถูกต้อง' : (j.error || 'error'));
+    return j;
+  }
+
+  // ---------- connect & events ----------
+  var events = [];
+  async function connect() {
+    S.apiUrl = $('#apiUrl').value.trim(); S.key = $('#key').value.trim(); save();
+    if (!S.apiUrl || !S.key) { log('error', 'กรอก URL และ Admin key ก่อน'); return; }
+    $('#btnConnect').disabled = true;
+    try {
+      var j = await api('listEvents');
+      events = j.events;
+      renderEvents();
+      $('#btnCreate').disabled = false;
+      log('ok', 'เชื่อมต่อสำเร็จ พบ ' + events.length + ' งาน');
+      if (S.event && events.some(function (e) { return e.code === S.event.code; })) await selectEvent(S.event.code);
+    } catch (e) {
+      log('error', 'เชื่อมต่อไม่สำเร็จ: ' + e.message);
+    } finally { $('#btnConnect').disabled = false; }
+  }
+
+  function renderEvents() {
+    var sel = $('#eventSelect');
+    sel.innerHTML = '<option value="">— เลือกงาน —</option>' + events.map(function (e) {
+      return '<option value="' + e.code + '">' + escapeHtml(e.name) + ' · ' + new Date(e.created).toLocaleDateString('th-TH') + '</option>';
+    }).join('');
+    sel.disabled = false;
+    if (S.event) sel.value = S.event.code;
+  }
+
+  async function createEvent() {
+    var name = $('#newEventName').value.trim();
+    if (!name) { log('error', 'ตั้งชื่องานก่อน'); return; }
+    $('#btnCreate').disabled = true;
+    try {
+      var j = await api('createEvent', { name: name });
+      events.unshift(j.event); renderEvents();
+      $('#newEventName').value = '';
+      log('ok', 'สร้างงาน "' + name + '" แล้ว');
+      await selectEvent(j.event.code);
+    } catch (e) { log('error', 'สร้างงานไม่สำเร็จ: ' + e.message); }
+    finally { $('#btnCreate').disabled = false; }
+  }
+
+  async function selectEvent(code) {
+    if (running) stop();
+    var ev = events.find(function (e) { return e.code === code; });
+    if (!ev) { S.event = null; save(); updateUi(); return; }
+    S.event = { code: ev.code, name: ev.name }; save();
+    $('#eventSelect').value = code;
+    uploaded.clear(); inQueue.clear(); pending.clear(); queue.length = 0;
+    stats.done = 0; stats.faces = 0; stats.errors = 0;
+    $('#recent').innerHTML = '<span class="hint">ยังไม่มีรูป</span>';
+    try {
+      var j = await api('names', { e: code });
+      j.names.forEach(function (n) { uploaded.add(n); });
+      stats.done = j.names.length;
+      $('#eventInfo').innerHTML = 'มีรูปในงานนี้แล้ว ' + j.names.length + ' รูป · <a href="' + j.folderUrl + '" target="_blank">เปิดโฟลเดอร์ใน Drive</a>';
+    } catch (e) { log('error', 'โหลดข้อมูลงานไม่สำเร็จ: ' + e.message); }
+    renderQr();
+    updateUi();
+  }
+
+  // ---------- QR ----------
+  function guestUrl() {
+    return new URL('./', location.href).href + '?e=' + S.event.code;
+  }
+  function qrDataUrl(text) {
+    var qr = qrcode(0, 'M'); qr.addData(text); qr.make();
+    return qr.createDataURL(10, 2);
+  }
+  function renderQr() {
+    if (!S.event) return;
+    var url = guestUrl();
+    try {
+      var src = qrDataUrl(url);
+      $('#qrBox').innerHTML = '<img alt="QR" src="' + src + '">';
+      $('#screenQr').src = src;
+    } catch (e) { $('#qrBox').textContent = 'สร้าง QR ไม่สำเร็จ'; }
+    $('#guestLink').innerHTML = '<a href="' + url + '" target="_blank">' + url + '</a>';
+    $('#screenTitle').textContent = S.event.name;
+    $('#btnScreen').disabled = false; $('#btnCopy').disabled = false;
+  }
+
+  // ---------- folder watching ----------
+  var dirHandle = null, running = false, scanning = false, preparing = false, active = 0;
+  var uploaded = new Set(), inQueue = new Set(), pending = new Map(), queue = [];
+  var stats = { done: 0, faces: 0, errors: 0 };
+  var MAX_PARALLEL = 3;
+  var wakeLock = null;
+
+  async function pickFolder() {
+    if (!window.showDirectoryPicker) { alert('กรุณาใช้ Google Chrome บน Mac (Safari ไม่รองรับการเลือกโฟลเดอร์)'); return; }
+    try {
+      dirHandle = await window.showDirectoryPicker({ id: 'taoren-photos', mode: 'read' });
+      $('#folderInfo').textContent = 'โฟลเดอร์: ' + dirHandle.name + ' · รองรับ .jpg / .png และโฟลเดอร์ย่อย';
+      log('ok', 'เลือกโฟลเดอร์ "' + dirHandle.name + '"');
+      updateUi();
+    } catch (e) { if (e.name !== 'AbortError') log('error', e.message); }
+  }
+
+  async function start() {
+    if (!S.event || !dirHandle) return;
+    try {
+      log('', 'กำลังโหลดโมเดลจดจำใบหน้า…');
+      await F.loadModels();
+      log('ok', 'โมเดลพร้อม');
+    } catch (e) { log('error', 'โหลดโมเดลไม่สำเร็จ: ' + e.message); return; }
+    running = true;
+    try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+    log('ok', 'เริ่มเฝ้าโฟลเดอร์แล้ว รูปใหม่จะอัปโหลดอัตโนมัติ');
+    updateUi(); tick();
+  }
+
+  function stop() {
+    running = false;
+    if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
+    log('', 'หยุดเฝ้าโฟลเดอร์');
+    updateUi();
+  }
+
+  document.addEventListener('visibilitychange', async function () {
+    if (running && document.visibilityState === 'visible' && navigator.wakeLock) {
+      try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+    }
+  });
+
+  async function scan(dir, prefix, depth) {
+    for await (var entry of dir.entries()) {
+      var name = entry[0], h = entry[1];
+      if (name.charAt(0) === '.') continue;
+      var path = prefix + name;
+      if (h.kind === 'directory') { if (depth < 3) await scan(h, path + '/', depth + 1); continue; }
+      if (!/\.(jpe?g|png)$/i.test(name)) continue;
+      var key = path.replace(/\//g, '_');
+      if (uploaded.has(key) || inQueue.has(key)) continue;
+      var f;
+      try { f = await h.getFile(); } catch (e) { continue; }
+      var p = pending.get(key);
+      // รอให้ขนาดไฟล์นิ่ง 1 รอบ (กันอ่านไฟล์ที่กล้องยังเขียนไม่เสร็จ)
+      if (p && p.size === f.size && p.lm === f.lastModified && f.size > 0) {
+        pending.delete(key); inQueue.add(key);
+        queue.push({ key: key, handle: h, tries: 0 });
+      } else pending.set(key, { size: f.size, lm: f.lastModified });
+    }
+  }
+
+  async function tick() {
+    if (!running || scanning) return;
+    scanning = true;
+    try { await scan(dirHandle, '', 0); }
+    catch (e) { log('error', 'อ่านโฟลเดอร์ไม่ได้: ' + e.message); }
+    finally { scanning = false; }
+    pump(); updateUi();
+  }
+
+  // ใช้ worker เป็นนาฬิกา เพื่อไม่ให้ Chrome หน่วงเวลาตอนหน้าต่างไม่ได้อยู่ด้านหน้า
+  try {
+    var w = new Worker(URL.createObjectURL(new Blob(['setInterval(function(){postMessage(1)},2500)'], { type: 'text/javascript' })));
+    w.onmessage = tick;
+  } catch (e) { setInterval(tick, 2500); }
+
+  async function prepare(file) {
+    var bmp = await createImageBitmap(file); // หมุนรูปตาม EXIF ให้อัตโนมัติ
+    try {
+      var up = F.toCanvas(bmp, S.maxEdge);
+      var blob = await new Promise(function (r) { up.toBlob(r, 'image/jpeg', Math.min(1, Math.max(0.5, S.quality || 0.9))); });
+      var det = F.toCanvas(up, S.detectEdge || 1600);
+      var dets = await F.detectAll(det, 0.5);
+      var thumb = F.toCanvas(det, 220).toDataURL('image/jpeg', 0.7);
+      return { blob: blob, faces: dets.map(function (d) { return F.encode(d.descriptor); }), thumb: thumb, t: file.lastModified || Date.now() };
+    } finally { if (bmp.close) bmp.close(); }
+  }
+
+  function blobToB64(blob) {
+    return new Promise(function (res, rej) {
+      var r = new FileReader();
+      r.onload = function () { res(String(r.result).split(',')[1]); };
+      r.onerror = rej; r.readAsDataURL(blob);
+    });
+  }
+
+  function retryLater(item) {
+    item.tries++; stats.errors++;
+    var wait = Math.min(60000, 5000 * item.tries);
+    setTimeout(function () { queue.push(item); pump(); }, wait);
+    updateUi();
+  }
+
+  async function pump() {
+    if (preparing) return;
+    preparing = true;
+    try {
+      while (running && queue.length && active < MAX_PARALLEL) {
+        var item = queue.shift();
+        var prep;
+        try { prep = await prepare(await item.handle.getFile()); }
+        catch (e) { log('error', item.key + ': เตรียมรูปไม่สำเร็จ (' + e.message + ')'); retryLater(item); continue; }
+        active++;
+        upload(item, prep).finally(function () { active--; pump(); updateUi(); });
+        updateUi();
+      }
+    } finally { preparing = false; }
+  }
+
+  async function upload(item, prep) {
+    try {
+      var data = await blobToB64(prep.blob);
+      await api('upload', { e: S.event.code, name: item.key, t: prep.t, data: data, faces: prep.faces });
+      uploaded.add(item.key); inQueue.delete(item.key);
+      stats.done++; stats.faces += prep.faces.length;
+      addRecent(prep.thumb, prep.faces.length);
+      log('ok', item.key + ' ✓ (' + prep.faces.length + ' หน้า)');
+    } catch (e) {
+      log('error', item.key + ': อัปโหลดไม่สำเร็จ จะลองใหม่ (' + e.message + ')');
+      retryLater(item);
+    }
+  }
+
+  function addRecent(src, n) {
+    var box = $('#recent');
+    if (box.querySelector('.hint')) box.innerHTML = '';
+    var fig = document.createElement('figure');
+    fig.innerHTML = '<img alt=""><figcaption>' + n + ' หน้า</figcaption>';
+    fig.querySelector('img').src = src;
+    box.prepend(fig);
+    while (box.children.length > 24) box.lastChild.remove();
+  }
+
+  // ---------- UI ----------
+  function updateUi() {
+    $('#btnStart').disabled = !(S.event && dirHandle);
+    $('#btnStart').textContent = running ? '■ หยุด' : '▶ เริ่มอัปโหลดอัตโนมัติ';
+    $('#dot').className = 'dot' + (running ? ' on' : '');
+    $('#statusText').textContent = running ? ('กำลังทำงาน' + (active ? ' · อัปโหลด ' + active + ' รูป' : ' · รอรูปใหม่')) : 'หยุดอยู่';
+    $('#sDone').textContent = stats.done;
+    $('#sQueue').textContent = queue.length + active;
+    $('#sFaces').textContent = stats.faces;
+    $('#sErr').textContent = stats.errors;
+  }
+
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  window.addEventListener('beforeunload', function (e) { if (running && (queue.length || active)) { e.preventDefault(); e.returnValue = ''; } });
+
+  $('#btnConnect').onclick = connect;
+  $('#btnCreate').onclick = createEvent;
+  $('#eventSelect').onchange = function () { selectEvent(this.value); };
+  $('#btnFolder').onclick = pickFolder;
+  $('#btnStart').onclick = function () { running ? stop() : start(); };
+  $('#btnScreen').onclick = function () { $('#screen').classList.add('show'); if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(function () {}); };
+  $('#btnCloseScreen').onclick = function () { $('#screen').classList.remove('show'); if (document.fullscreenElement) document.exitFullscreen(); };
+  $('#btnCopy').onclick = function () { navigator.clipboard.writeText(guestUrl()); log('ok', 'คัดลอกลิงก์แล้ว'); };
+
+  updateUi();
+  if (S.apiUrl && S.key) connect();
+  F.loadModels().catch(function () {}); // โหลดโมเดลล่วงหน้า
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#111111">
+<title>TAOREN — รูปของคุณ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#111; --muted:#777; --line:#e8e5e0; --bg:#faf9f7; --accent:#b08d57; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; font-family:'IBM Plex Sans Thai',system-ui,sans-serif; background:var(--bg); color:var(--ink); min-height:100vh; }
+  header { background:var(--ink); color:#fff; text-align:center; padding:26px 16px 22px; }
+  .brand { letter-spacing:.42em; font-weight:500; font-size:20px; padding-left:.42em; }
+  .event { font-weight:300; font-size:15px; opacity:.8; margin-top:6px; }
+  main { max-width:760px; margin:0 auto; padding:22px 16px 60px; }
+  .panel { background:#fff; border:1px solid var(--line); border-radius:18px; padding:22px; text-align:center; }
+  h1 { font-size:21px; font-weight:500; margin:4px 0 8px; }
+  p { color:var(--muted); line-height:1.65; font-size:14px; margin:6px 0; }
+  .consent { display:flex; gap:10px; text-align:left; font-size:13px; color:#444; background:#f6f3ee; border-radius:12px; padding:12px 14px; margin:16px 0; line-height:1.6; }
+  .consent input { width:20px; height:20px; flex:0 0 auto; margin-top:2px; accent-color:var(--ink); }
+  .btn { display:block; width:100%; font:inherit; font-size:17px; font-weight:500; padding:15px; border-radius:14px; border:0; background:var(--ink); color:#fff; cursor:pointer; }
+  .btn:disabled { opacity:.35; }
+  .btn.ghost { background:#fff; color:var(--ink); border:1px solid var(--ink); font-size:15px; padding:11px; }
+  .loading { font-size:13px; color:var(--muted); margin-top:12px; min-height:20px; }
+  .me { display:flex; align-items:center; gap:14px; text-align:left; }
+  .me img { width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid var(--accent); }
+  .me b { font-size:18px; font-weight:500; display:block; }
+  .me span { font-size:13px; color:var(--muted); }
+  .bar { display:flex; gap:10px; margin:16px 0 6px; }
+  .bar .btn { flex:1; }
+  .toggle { display:flex; align-items:center; justify-content:center; gap:8px; font-size:13px; color:var(--muted); margin:10px 0 0; }
+  .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:6px; margin-top:16px; }
+  @media (min-width:600px) { .grid { grid-template-columns:repeat(3,1fr); } }
+  .grid button { padding:0; border:0; background:#eee; border-radius:10px; overflow:hidden; aspect-ratio:3/4; cursor:pointer; position:relative; }
+  .grid img { width:100%; height:100%; object-fit:cover; display:block; }
+  .grid .maybe::after { content:'อาจเป็นคุณ'; position:absolute; left:6px; top:6px; font-size:11px; background:rgba(255,255,255,.9); padding:1px 7px; border-radius:8px; color:#555; }
+  .grid .new::before { content:'ใหม่'; position:absolute; right:6px; top:6px; font-size:11px; background:var(--accent); color:#fff; padding:1px 7px; border-radius:8px; z-index:1; }
+  .empty { text-align:center; padding:30px 10px; }
+  .live { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); margin-top:12px; }
+  .live i { width:8px; height:8px; border-radius:50%; background:#3a9a5f; animation:blink 1.6s infinite; }
+  @keyframes blink { 50% { opacity:.3; } }
+  .spinner { width:34px; height:34px; border:3px solid var(--line); border-top-color:var(--ink); border-radius:50%; animation:spin .9s linear infinite; margin:16px auto; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  #viewer { position:fixed; inset:0; background:rgba(0,0,0,.94); display:none; flex-direction:column; z-index:20; }
+  #viewer.show { display:flex; }
+  #viewer .img { flex:1; display:flex; align-items:center; justify-content:center; padding:12px; min-height:0; }
+  #viewer img { max-width:100%; max-height:100%; object-fit:contain; -webkit-touch-callout:default; }
+  #viewer .tools { display:flex; gap:10px; padding:12px 16px calc(14px + env(safe-area-inset-bottom)); }
+  #viewer .tools a, #viewer .tools button { flex:1; text-align:center; text-decoration:none; font:inherit; font-size:15px; padding:13px; border-radius:12px; border:1px solid #fff; background:transparent; color:#fff; }
+  #viewer .tools a { background:#fff; color:#111; }
+  #viewer .tip { color:#aaa; font-size:12px; text-align:center; }
+  .hidden { display:none !important; }
+  footer { text-align:center; font-size:11px; color:#aaa; padding:0 16px 30px; letter-spacing:.1em; }
+</style>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
+<script src="face.js"></script>
+</head>
+<body>
+<header>
+  <div class="brand" id="brand">TAOREN</div>
+  <div class="event" id="eventName">&nbsp;</div>
+</header>
+
+<main>
+  <!-- ขั้นที่ 1: ยินยอม + ถ่ายเซลฟี่ -->
+  <section class="panel" id="stepStart">
+    <h1>ค้นหารูปของคุณ</h1>
+    <p>ถ่ายเซลฟี่ 1 รูป ระบบจะค้นหารูปทุกรูปในงานที่มีคุณอยู่</p>
+    <label class="consent">
+      <input type="checkbox" id="consent">
+      <span>ฉันยินยอมให้ระบบใช้ภาพใบหน้าของฉันเพื่อค้นหารูปในงานนี้เท่านั้น ภาพเซลฟี่จะถูกประมวลผลบนมือถือของฉันและจะไม่ถูกอัปโหลดหรือเก็บไว้ที่เซิร์ฟเวอร์</span>
+    </label>
+    <button class="btn" id="btnSelfie" disabled>📷 ถ่ายเซลฟี่</button>
+    <input type="file" id="selfieInput" accept="image/*" capture="user" class="hidden">
+    <div class="loading" id="loadMsg">กำลังเตรียมระบบจดจำใบหน้า…</div>
+  </section>
+
+  <!-- ขั้นที่ 2: กำลังค้นหา -->
+  <section class="panel hidden" id="stepSearching">
+    <div class="spinner"></div>
+    <p id="searchMsg">กำลังค้นหารูปของคุณ…</p>
+  </section>
+
+  <!-- ขั้นที่ 3: ผลลัพธ์ -->
+  <section class="hidden" id="stepResults">
+    <div class="panel">
+      <div class="me">
+        <img id="meImg" alt="">
+        <div><b id="countText"></b><span id="countSub">รูปใหม่จะขึ้นเองระหว่างงาน</span></div>
+      </div>
+      <div class="bar">
+        <button class="btn ghost" id="btnRetake">ถ่ายเซลฟี่ใหม่</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="showMaybe"> แสดงรูปที่อาจจะเป็นคุณด้วย</label>
+      <div class="live"><i></i> กำลังติดตามรูปใหม่</div>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="empty hidden" id="emptyMsg">
+      <p>ยังไม่พบรูปของคุณ<br>ถ้าเพิ่งถ่าย รอสักครู่ รูปจะขึ้นเองอัตโนมัติ<br>หรือลองถ่ายเซลฟี่ใหม่ในที่แสงสว่าง หันหน้าตรง ไม่สวมแว่นดำ</p>
+    </div>
+  </section>
+
+  <section class="panel hidden" id="stepError">
+    <h1>ไม่พบงานนี้</h1>
+    <p id="errorMsg">กรุณาสแกน QR code ที่บูธอีกครั้ง</p>
+  </section>
+</main>
+<footer id="footer">PHOTOS BY TAOREN</footer>
+
+<div id="viewer">
+  <div class="img"><img id="viewerImg" alt=""></div>
+  <div class="tip">iPhone: กดค้างที่รูป แล้วเลือก "บันทึกไปยังรูปภาพ"</div>
+  <div class="tools">
+    <button id="btnClose">ปิด</button>
+    <a id="btnDownload" href="#" target="_blank" rel="noopener">ดาวน์โหลด</a>
+  </div>
+</div>
+
+<script>
+(function () {
+  var CFG = window.TAOREN || {};
+  var F = window.TaorenFace;
+  var $ = function (s) { return document.querySelector(s); };
+  var MATCH = CFG.MATCH_THRESHOLD || 0.5;
+  var MAYBE = CFG.MAYBE_THRESHOLD || 0.56;
+  var POLL_MS = 15000;
+
+  if (CFG.BRAND) { $('#brand').textContent = CFG.BRAND; $('#footer').textContent = 'PHOTOS BY ' + CFG.BRAND; }
+
+  var code = (new URLSearchParams(location.search).get('e') || '').trim().toLowerCase();
+  var LS_KEY = 'taoren_me_' + code;
+
+  var photos = [];      // { id, t, faces: Float32Array[], best: number }
+  var total = 0;        // จำนวนแถวที่โหลดแล้ว
+  var me = null;        // descriptor ของลูกค้า
+  var seenIds = new Set();
+  var firstRenderDone = false;
+  var polling = null;
+
+  function show(id) {
+    ['#stepStart', '#stepSearching', '#stepResults', '#stepError'].forEach(function (s) { $(s).classList.toggle('hidden', s !== id); });
+  }
+  function fail(msg) { $('#errorMsg').textContent = msg; show('#stepError'); }
+
+  function thumbUrl(id, w) { return 'https://drive.google.com/thumbnail?id=' + id + '&sz=w' + w; }
+  function altUrl(id, w) { return 'https://lh3.googleusercontent.com/d/' + id + '=w' + w; }
+  function downloadUrl(id) { return 'https://drive.google.com/uc?export=download&id=' + id; }
+
+  async function fetchIndex() {
+    var res = await fetch(CFG.API_URL + '?e=' + encodeURIComponent(code) + '&since=' + total, { cache: 'no-store' });
+    var j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    $('#eventName').textContent = j.name || '';
+    document.title = (CFG.BRAND || 'TAOREN') + ' — ' + (j.name || 'รูปของคุณ');
+    j.photos.forEach(function (p) {
+      photos.push({ id: p[0], t: p[1], faces: p[2] ? p[2].split('|').filter(Boolean).map(F.decode) : [], best: Infinity });
+    });
+    total = j.total;
+    return j.photos.length;
+  }
+
+  function scoreAll() {
+    if (!me) return;
+    photos.forEach(function (p) {
+      if (p.best !== Infinity || !p.faces.length) return;
+      var best = Infinity;
+      for (var i = 0; i < p.faces.length; i++) { var d = F.distance(me, p.faces[i]); if (d < best) best = d; }
+      p.best = best;
+    });
+  }
+
+  function render() {
+    var limit = $('#showMaybe').checked ? MAYBE : MATCH;
+    var list = photos.filter(function (p) { return p.best < limit; }).sort(function (a, b) { return b.t - a.t; });
+    var sure = photos.filter(function (p) { return p.best < MATCH; }).length;
+    $('#countText').textContent = sure ? ('พบ ' + sure + ' รูปของคุณ') : 'ยังไม่พบรูปของคุณ';
+    $('#emptyMsg').classList.toggle('hidden', list.length > 0);
+    var grid = $('#grid');
+    grid.innerHTML = '';
+    list.forEach(function (p) {
+      var b = document.createElement('button');
+      if (p.best >= MATCH) b.classList.add('maybe');
+      if (firstRenderDone && !seenIds.has(p.id)) b.classList.add('new');
+      var img = document.createElement('img');
+      img.loading = 'lazy'; img.alt = '';
+      img.src = thumbUrl(p.id, 600);
+      img.onerror = function () {
+        if (!img.dataset.alt) { img.dataset.alt = 1; img.src = altUrl(p.id, 600); }
+        else if (!img.dataset.retry) { img.dataset.retry = 1; setTimeout(function () { img.src = thumbUrl(p.id, 600) + '&r=' + Date.now(); }, 4000); }
+      };
+      b.appendChild(img);
+      b.onclick = function () { openViewer(p.id); };
+      grid.appendChild(b);
+    });
+    list.forEach(function (p) { seenIds.add(p.id); });
+    firstRenderDone = true;
+  }
+
+  function openViewer(id) {
+    var img = $('#viewerImg');
+    img.onerror = function () { img.onerror = null; img.src = altUrl(id, 2000); };
+    img.src = thumbUrl(id, 2000);
+    $('#btnDownload').href = downloadUrl(id);
+    $('#viewer').classList.add('show');
+  }
+  $('#btnClose').onclick = function () { $('#viewer').classList.remove('show'); $('#viewerImg').src = ''; };
+
+  function startPolling() {
+    if (polling) return;
+    polling = setInterval(async function () {
+      if (document.visibilityState !== 'visible') return;
+      try { var n = await fetchIndex(); if (n) { scoreAll(); render(); } } catch (e) {}
+    }, POLL_MS);
+  }
+
+  async function loadImage(file) {
+    try { return await createImageBitmap(file); }
+    catch (e) {
+      return await new Promise(function (res, rej) {
+        var im = new Image(); im.onload = function () { res(im); }; im.onerror = rej; im.src = URL.createObjectURL(file);
+      });
+    }
+  }
+
+  async function handleSelfie(file) {
+    show('#stepSearching');
+    $('#searchMsg').textContent = 'กำลังวิเคราะห์ใบหน้า…';
+    try {
+      await F.loadModels();
+      var src = await loadImage(file);
+      var c = F.toCanvas(src, 900);
+      var dets = await F.detectAll(c, 0.4);
+      if (!dets.length) { alert('ไม่พบใบหน้าในรูป กรุณาถ่ายใหม่ให้เห็นหน้าชัด ๆ ในที่แสงสว่าง'); show('#stepStart'); return; }
+      dets.sort(function (a, b) { return (b.detection.box.width * b.detection.box.height) - (a.detection.box.width * a.detection.box.height); });
+      var d = dets[0];
+      var box = d.detection.box, pad = box.width * 0.35;
+      var crop = document.createElement('canvas'); crop.width = crop.height = 160;
+      crop.getContext('2d').drawImage(c, box.x - pad, box.y - pad, box.width + pad * 2, box.height + pad * 2, 0, 0, 160, 160);
+      var thumb = crop.toDataURL('image/jpeg', 0.8);
+      me = F.decode(F.encode(d.descriptor));
+      try { localStorage.setItem(LS_KEY, JSON.stringify({ d: F.encode(d.descriptor), img: thumb })); } catch (e) {}
+      $('#meImg').src = thumb;
+      await showResults();
+    } catch (e) {
+      alert('เกิดข้อผิดพลาด: ' + e.message);
+      show('#stepStart');
+    }
+  }
+
+  async function showResults() {
+    $('#searchMsg').textContent = 'กำลังค้นหารูปของคุณ…';
+    photos.forEach(function (p) { p.best = Infinity; });
+    seenIds.clear(); firstRenderDone = false;
+    scoreAll(); render();
+    show('#stepResults');
+    startPolling();
+  }
+
+  // ---------- start ----------
+  if (!code) { fail('กรุณาสแกน QR code ที่บูธถ่ายรูปเพื่อเข้าสู่หน้ารูปของงาน'); return; }
+  if (!CFG.API_URL || CFG.API_URL.indexOf('http') !== 0) { fail('ระบบยังตั้งค่าไม่เสร็จ (API_URL ใน config.js)'); return; }
+
+  var consent = $('#consent');
+  var modelsOk = false, indexOk = false;
+  function refreshBtn() { $('#btnSelfie').disabled = !(consent.checked && modelsOk && indexOk); }
+  consent.onchange = refreshBtn;
+  $('#btnSelfie').onclick = function () { $('#selfieInput').value = ''; $('#selfieInput').click(); };
+  $('#selfieInput').onchange = function () { if (this.files && this.files[0]) handleSelfie(this.files[0]); };
+  $('#btnRetake').onclick = function () {
+    try { localStorage.removeItem(LS_KEY); } catch (e) {}
+    me = null; show('#stepStart'); refreshBtn();
+  };
+  $('#showMaybe').onchange = render;
+
+  var saved = null;
+  try { saved = JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch (e) {}
+
+  fetchIndex().then(function () {
+    indexOk = true; refreshBtn();
+    if (saved && saved.d) {
+      me = F.decode(saved.d); $('#meImg').src = saved.img || ''; showResults();
+    }
+  }).catch(function (e) {
+    fail(e.message === 'not_found' ? 'ไม่พบงานนี้ กรุณาสแกน QR code ที่บูธอีกครั้ง' : 'เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+  });
+
+  F.loadModels().then(function () {
+    modelsOk = true; $('#loadMsg').textContent = ''; refreshBtn();
+  }).catch(function () {
+    $('#loadMsg').textContent = 'โหลดระบบไม่สำเร็จ กรุณาเช็คอินเทอร์เน็ตแล้วรีเฟรชหน้า';
+  });
+})();
+</script>
+</body>
+</html>
